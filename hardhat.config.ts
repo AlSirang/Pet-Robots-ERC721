@@ -14,6 +14,13 @@ const config: HardhatUserConfig = {
   paths: { tests: "tests" },
 
   networks: {
+    hardhat: {
+      // fork ETH mainnet at block 17038902
+      forking: {
+        url: process.env.ETH_MAINNET_URL || "",
+        blockNumber: 17038902,
+      },
+    },
     goerli: {
       url: process.env.GOERLI_URL || "",
       accounts:
