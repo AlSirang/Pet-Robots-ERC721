@@ -16,6 +16,12 @@ Run `npx hardhat compile` to create artifacts.
 
 Run `npx hardhat test` to execute tests scripts.
 
+### Fork mainnet
+
+```shell
+npx hardhat node --fork https://mainnet.infura.io/v3/<INFURA_API_KEY>
+```
+
 ## Test Results
 
 The following image shows the test results.

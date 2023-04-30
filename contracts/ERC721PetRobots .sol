@@ -6,6 +6,7 @@ import "erc721a/contracts/ERC721A.sol";
 import "@openzeppelin/contracts/interfaces/IERC2981.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
+import "./interfaces/IERC1155.sol";
 
 // =============================================================
 //                       ERRORS
@@ -25,6 +26,8 @@ error PetsExceeded();
 
 contract ERC721PetRobots is ERC721A, Ownable, IERC2981 {
     using Strings for uint256;
+
+    IERC1155 DROE_ERC1155;
 
     uint8 public constant ERC1155_KEY_CARD_Id = 1; // ERC1155's Token Id 1 is only accepted to be burn and mint new NFTs
 
@@ -49,9 +52,22 @@ contract ERC721PetRobots is ERC721A, Ownable, IERC2981 {
         if (!isSpawning) revert SpawningIsPaused();
         if (volume == 0) revert ZeroTokensSpawn();
 
-        if (msg.value < (spawnPrice * volume)) revert LowPrice();
-        // todo: add logic for ERC1155 balance / paid mint
-        _;
+        if (msg.value == (spawnPrice * volume)) {
+            _;
+        } else if (
+            DROE_ERC1155.balanceOf(_msgSender(), ERC1155_KEY_CARD_Id) >= volume
+        ) {
+            uint256[] memory tokenIds = new uint256[](1);
+            uint256[] memory amount = new uint256[](1);
+
+            tokenIds[0] = ERC1155_KEY_CARD_Id;
+            amount[0] = volume;
+
+            DROE_ERC1155.burn(_msgSender(), tokenIds, amount);
+            _;
+        } else {
+            revert LowPrice();
+        }
     }
 
     // =============================================================
@@ -98,7 +114,7 @@ contract ERC721PetRobots is ERC721A, Ownable, IERC2981 {
     /**
      * @dev it is only callable by Contract owner. it will toggle spawn status
      */
-    function toggleSpawningStatus() external onlyOwner {
+    function toggleSpawn() external onlyOwner {
         isSpawning = !isSpawning;
     }
 
@@ -206,8 +222,12 @@ contract ERC721PetRobots is ERC721A, Ownable, IERC2981 {
     //                      CONSTRUCTOR
     // =============================================================
 
-    constructor(string memory _uri) ERC721A("Pet Robots", "PT") {
+    constructor(
+        string memory _uri,
+        address address_DROE_ERC1155
+    ) ERC721A("Pet Robots", "PT") {
         baseURI = _uri;
+        DROE_ERC1155 = IERC1155(address_DROE_ERC1155);
         royaltiesReciver = msg.sender;
     }
 }

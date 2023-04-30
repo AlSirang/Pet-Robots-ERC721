@@ -5,6 +5,8 @@ import chaiAsPromised from "chai-as-promised";
 import { BigNumberish } from "ethers";
 import { ethers } from "hardhat";
 import { ERC721PetRobots } from "../typechain";
+import { reset } from "@nomicfoundation/hardhat-network-helpers";
+import { BLOCK_NUMBER } from "../hardhat.config";
 chaiUse(chaiAsPromised);
 
 /// ************** CONSTANTS **************** ///
@@ -17,6 +19,7 @@ const SYMBOL = "PT";
 const MAX_SUPPLY = 4444;
 const RESERVED_TOKENS = 350;
 const PUBLIC_SUPPLY = MAX_SUPPLY - RESERVED_TOKENS;
+const ERC1155_DROE = "0x35c742c97ae97632f3a7c98a405cc4034f034ce3";
 
 /// ************** TESTS **************** ///
 describe("PetRobots", async function () {
@@ -28,6 +31,9 @@ describe("PetRobots", async function () {
   let minter: SignerWithAddress; // minter
 
   beforeEach(async function () {
+    // reset Block
+    await reset(process.env.ETH_MAINNET_URL, BLOCK_NUMBER);
+
     accounts = await ethers.getSigners();
 
     deployer = accounts[0];
@@ -35,9 +41,9 @@ describe("PetRobots", async function () {
     minter = accounts[2];
 
     const ERC721PetRobots = await ethers.getContractFactory("ERC721PetRobots");
-    nft = await ERC721PetRobots.deploy(BASE_URI);
+    nft = await ERC721PetRobots.deploy(BASE_URI, ERC1155_DROE);
 
-    await nft.toggleSpawningStatus();
+    await nft.toggleSpawn();
   });
 
   /***** test case 1 ******/
@@ -104,6 +110,7 @@ describe("PetRobots", async function () {
       const volume = 3;
 
       const mintPrice = await nft.spawnPrice();
+      ERC1155_DROE;
 
       await expect(
         nft.spawn(volume, {
