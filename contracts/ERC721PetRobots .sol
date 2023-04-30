@@ -26,8 +26,10 @@ error PetsExceeded();
 contract ERC721PetRobots is ERC721A, Ownable, IERC2981 {
     using Strings for uint256;
 
+    uint8 public constant ERC1155_KEY_CARD_Id = 1; // ERC1155's Token Id 1 is only accepted to be burn and mint new NFTs
+
     uint16 public constant maxPetsSupply = 4444; // maxPetsSupply =  + reservePets + publicPetsSupply
-    uint16 private constant _publicPetsSupply = 4444; // tokens avaiable for public
+    uint16 private constant _publicPetsSupply = 4094; // tokens avaiable for public
     uint16 public reservePets = 350; // tokens reserve for the owner
 
     uint16 private _totalPublicPets; // number of tokens minted from public supply
@@ -47,6 +49,7 @@ contract ERC721PetRobots is ERC721A, Ownable, IERC2981 {
         if (!isSpawning) revert SpawningIsPaused();
         if (volume == 0) revert ZeroTokensSpawn();
 
+        if (msg.value < (spawnPrice * volume)) revert LowPrice();
         // todo: add logic for ERC1155 balance / paid mint
         _;
     }
