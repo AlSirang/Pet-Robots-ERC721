@@ -220,6 +220,7 @@ describe("PetRobots", async function () {
   describe("deploy contract, mint all public tokens", () => {
     beforeEach(async () => {
       await nft.setMintPrice(0);
+      await nft.setWalletLimit(MAX_SUPPLY);
       await nft.mint(PUBLIC_SUPPLY);
     });
     it("total supply should be equal to max supply", async () => {
@@ -260,6 +261,7 @@ describe("PetRobots", async function () {
       beforeEach(async () => {
         await nft.mintFromReserve(deployer.address, RESERVED_TOKENS);
         await nft.setMintPrice("0");
+        await nft.setWalletLimit(MAX_SUPPLY);
 
         for (let i = 0; i < 4; i++) {
           let volume = 1000;
@@ -305,6 +307,7 @@ describe("PetRobots", async function () {
       await Promise.all([
         nft.mintFromReserve(deployer.address, RESERVED_TOKENS),
         nft.setMintPrice("0"),
+        nft.setWalletLimit(MAX_SUPPLY + MAX_SUPPLY),
       ]);
       await nft.mint(PUBLIC_SUPPLY);
     });

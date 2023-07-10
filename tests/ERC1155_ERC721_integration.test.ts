@@ -19,7 +19,7 @@ const MANI_FOLD_ADDRESS = "0xE7d3982E214F9DFD53d23a7f72851a7044072250";
 /**
  * @dev these test cases should be run with forked mainnet
  */
-describe("ERC1155_ERC721_integration.test", async function () {
+describe("ERC1155 & ERC721 integration", async function () {
   let nft: ERC721PetRobots;
   let DROE_ERC1155: IERC1155;
   let accounts: SignerWithAddress[];

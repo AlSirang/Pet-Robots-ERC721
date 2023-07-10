@@ -24,6 +24,9 @@ error LowPrice();
 /// Max supply limit exceed error
 error PetsExceeded();
 
+/// mint limit exceed error
+error WalletLimitExceeded();
+
 contract ERC721PetRobots is ERC721AQueryable, Ownable, IERC2981 {
     using Strings for uint256;
 
@@ -31,6 +34,7 @@ contract ERC721PetRobots is ERC721AQueryable, Ownable, IERC2981 {
     uint8 public constant ERC1155_KEY_CARD_Id = 1; // ERC1155's Token Id 1 is only accepted to be burn and mint new NFTs
 
     uint256 private _totalPublicPets; // number of tokens minted from public supply
+    uint256 public mintPrice = 0.099 ether; // mint price per token
 
     uint16 public constant maxPetsSupply = 4444; // maxPetsSupply =  + reservePets + publicPetsSupply
     uint16 private immutable _publicPetsSupply; // tokens avaiable for public
@@ -38,7 +42,8 @@ contract ERC721PetRobots is ERC721AQueryable, Ownable, IERC2981 {
 
     uint16 private _royalties = 700; // royalties in bps 1% = (1 *100) = 100 bps
 
-    uint256 public mintPrice = 0.099 ether; // mint price per token
+    uint16 public walletLimit = 5; // max NFTs per wallet allowed to mint
+
     bool public isMinting;
 
     address public royaltiesReciver; // EOA for as royalties receiver for collection
@@ -61,7 +66,10 @@ contract ERC721PetRobots is ERC721AQueryable, Ownable, IERC2981 {
         if (volume == 0) revert ZeroTokensMint();
         if (msg.value < (mintPrice * volume)) revert LowPrice();
 
-        mintPets(volume);
+        uint256 requestedVolume = _numberMinted(_msgSender()) + volume;
+        if (requestedVolume > walletLimit) revert WalletLimitExceeded();
+
+        _mintPets(volume);
     }
 
     function redeemKeyCards() external {
@@ -77,7 +85,7 @@ contract ERC721PetRobots is ERC721AQueryable, Ownable, IERC2981 {
         // burn keycards
         DROE_ERC1155.burn(_msgSender(), tokenIds, amount);
 
-        mintPets(volume);
+        _mintPets(volume);
     }
 
     /**
@@ -91,14 +99,10 @@ contract ERC721PetRobots is ERC721AQueryable, Ownable, IERC2981 {
         _safeMint(to, volume);
     }
 
-    // =============================================================
-    //                       PRIVATE FUNCTIONS
-    // =============================================================
-
     /**
      * @dev private function to compute max supply and mint NFTs
      */
-    function mintPets(uint volume) private {
+    function _mintPets(uint volume) private {
         // max supply check
         uint totalPets = _totalPublicPets + volume;
         if (totalPets > _publicPetsSupply) revert PetsExceeded();
@@ -117,6 +121,13 @@ contract ERC721PetRobots is ERC721AQueryable, Ownable, IERC2981 {
      */
     function toggleMint() external onlyOwner {
         isMinting = !isMinting;
+    }
+
+    /**
+     * @dev it is only callable by Contract owner. it will update max mint limit per wallet
+     */
+    function setWalletLimit(uint16 _limit) external onlyOwner {
+        walletLimit = _limit;
     }
 
     /**
