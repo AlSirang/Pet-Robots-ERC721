@@ -17,7 +17,7 @@ const TOKEN_ONE = 1;
 const NAME = "Pet Robots";
 const SYMBOL = "PT";
 const MAX_SUPPLY = 4444;
-const RESERVED_TOKENS = 350;
+const RESERVED_TOKENS = 150;
 const PUBLIC_SUPPLY = MAX_SUPPLY - RESERVED_TOKENS;
 const ERC1155_DROE = "0x35c742c97ae97632f3a7c98a405cc4034f034ce3";
 
@@ -43,7 +43,7 @@ describe("PetRobots", async function () {
     const ERC721PetRobots = await ethers.getContractFactory("ERC721PetRobots");
     nft = await ERC721PetRobots.deploy(BASE_URI, ERC1155_DROE);
 
-    await nft.toggleSpawn();
+    await nft.toggleMint();
   });
 
   /***** test case 1 ******/
@@ -71,9 +71,9 @@ describe("PetRobots", async function () {
     let receipt: any;
 
     beforeEach(async () => {
-      mintPrice = await nft.spawnPrice();
+      mintPrice = await nft.mintPrice();
       const value = mintPrice.mul(tokens);
-      receipt = await nft.connect(minter).spawn(tokens, {
+      receipt = await nft.connect(minter).mint(tokens, {
         value,
       });
     });
@@ -109,11 +109,11 @@ describe("PetRobots", async function () {
     it("low price", async () => {
       const volume = 3;
 
-      const mintPrice = await nft.spawnPrice();
+      const mintPrice = await nft.mintPrice();
       ERC1155_DROE;
 
       await expect(
-        nft.spawn(volume, {
+        nft.mint(volume, {
           value: mintPrice.mul(volume - 1),
         })
       ).to.revertedWith("LowPrice");
@@ -125,7 +125,7 @@ describe("PetRobots", async function () {
     const toknesMinted = 10;
     let receipt: any;
     beforeEach(async () => {
-      receipt = await nft.spawnFromReserve(accountX.address, toknesMinted);
+      receipt = await nft.mintFromReserve(accountX.address, toknesMinted);
     });
 
     it("balance", async () => {
@@ -146,7 +146,7 @@ describe("PetRobots", async function () {
     let mintPriceWei: BigNumberish;
 
     beforeEach(async () => {
-      const mintPrice = await nft.spawnPrice();
+      const mintPrice = await nft.mintPrice();
       mintPriceWei = mintPrice.mul(1);
     });
 
@@ -168,7 +168,7 @@ describe("PetRobots", async function () {
 
         let royaltyAmount = null;
 
-        await nft.connect(minter).spawn(1, { value: mintPriceWei });
+        await nft.connect(minter).mint(1, { value: mintPriceWei });
         ({ royaltyAmount } = await nft.royaltyInfo(TOKEN_ONE, ONE_ETH));
         const percentage = 1 * (royalties / 10000);
         expect(royaltyAmount).to.be.eq(
@@ -188,7 +188,7 @@ describe("PetRobots", async function () {
       it("update royalites receiver ", async () => {
         await nft.setRoyaltiesReciver(accountX.address);
 
-        await nft.connect(minter).spawn(1, { value: mintPriceWei });
+        await nft.connect(minter).mint(1, { value: mintPriceWei });
         let { receiver } = await nft.royaltyInfo(TOKEN_ONE, ONE_ETH);
 
         expect(receiver).to.be.eq(accountX.address);
@@ -219,8 +219,8 @@ describe("PetRobots", async function () {
   /***** test case 6 ******/
   describe("deploy contract, mint all public tokens", () => {
     beforeEach(async () => {
-      await nft.setSpawnPrice(0);
-      await nft.spawn(PUBLIC_SUPPLY);
+      await nft.setMintPrice(0);
+      await nft.mint(PUBLIC_SUPPLY);
     });
     it("total supply should be equal to max supply", async () => {
       expect(await nft.totalSupply()).to.eq(PUBLIC_SUPPLY);
@@ -242,7 +242,7 @@ describe("PetRobots", async function () {
   describe("deploy contract, mint all tokens", function () {
     describe("mint all tokens from reserve", function () {
       beforeEach(async () => {
-        await nft.spawnFromReserve(deployer.address, RESERVED_TOKENS);
+        await nft.mintFromReserve(deployer.address, RESERVED_TOKENS);
       });
 
       it("balance", async () => {
@@ -250,7 +250,7 @@ describe("PetRobots", async function () {
       });
 
       it("should revert on reserve limit exceeded", async () => {
-        await expect(nft.spawnFromReserve(minter.address, 1)).revertedWith(
+        await expect(nft.mintFromReserve(minter.address, 1)).revertedWith(
           "PetsExceeded"
         );
       });
@@ -258,19 +258,19 @@ describe("PetRobots", async function () {
 
     describe("mint all reserve tokens, than public supply", () => {
       beforeEach(async () => {
-        await nft.spawnFromReserve(deployer.address, RESERVED_TOKENS);
-        await nft.setSpawnPrice("0");
+        await nft.mintFromReserve(deployer.address, RESERVED_TOKENS);
+        await nft.setMintPrice("0");
 
         for (let i = 0; i < 4; i++) {
           let volume = 1000;
           if (accounts[i].address == deployer.address)
             volume -= RESERVED_TOKENS;
 
-          await nft.connect(accounts[i]).spawn(volume);
+          await nft.connect(accounts[i]).mint(volume);
         }
 
         // mint last 444 NFTs
-        await nft.connect(accounts[5]).spawn(444);
+        await nft.connect(accounts[5]).mint(444);
       });
 
       it("mint public nfts", async () => {
@@ -303,10 +303,10 @@ describe("PetRobots", async function () {
   describe("mint more than max supply", () => {
     beforeEach(async () => {
       await Promise.all([
-        nft.spawnFromReserve(deployer.address, RESERVED_TOKENS),
-        nft.setSpawnPrice("0"),
+        nft.mintFromReserve(deployer.address, RESERVED_TOKENS),
+        nft.setMintPrice("0"),
       ]);
-      await nft.spawn(PUBLIC_SUPPLY);
+      await nft.mint(PUBLIC_SUPPLY);
     });
 
     it("total supply should be 10000", async () => {
@@ -316,7 +316,7 @@ describe("PetRobots", async function () {
     it("should revert mint for max  max supply exceeded", async () => {
       const exceededAmount = 1;
 
-      await expect(nft.spawn(exceededAmount)).to.revertedWith("PetsExceeded");
+      await expect(nft.mint(exceededAmount)).to.revertedWith("PetsExceeded");
     });
   });
 });

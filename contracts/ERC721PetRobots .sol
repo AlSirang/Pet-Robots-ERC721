@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.17;
 
-import "erc721a/contracts/ERC721A.sol";
+import "erc721a/contracts/extensions/ERC721AQueryable.sol";
 import "@openzeppelin/contracts/interfaces/IERC2981.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
@@ -12,34 +12,34 @@ import "./interfaces/IERC1155.sol";
 //                       ERRORS
 // =============================================================
 
-/// When public spawning has not yet started
-error SpawningIsPaused();
+/// When public minting has not yet started
+error MintingIsPaused();
 
-/// Zero NFTs spawn. Wallet can spawn at least one NFT.
-error ZeroTokensSpawn();
+/// Zero NFTs mint. Wallet can mint at least one NFT.
+error ZeroTokensMint();
 
-/// For price check. msg.value should be greater than or equal to spawn price
+/// For price check. msg.value should be greater than or equal to mint price
 error LowPrice();
 
 /// Max supply limit exceed error
 error PetsExceeded();
 
-contract ERC721PetRobots is ERC721A, Ownable, IERC2981 {
+contract ERC721PetRobots is ERC721AQueryable, Ownable, IERC2981 {
     using Strings for uint256;
 
     IERC1155 DROE_ERC1155;
-
     uint8 public constant ERC1155_KEY_CARD_Id = 1; // ERC1155's Token Id 1 is only accepted to be burn and mint new NFTs
 
-    uint16 public constant maxPetsSupply = 4444; // maxPetsSupply =  + reservePets + publicPetsSupply
-    uint16 private constant _publicPetsSupply = 4094; // tokens avaiable for public
-    uint16 public reservePets = 350; // tokens reserve for the owner
+    uint256 private _totalPublicPets; // number of tokens minted from public supply
 
-    uint16 private _totalPublicPets; // number of tokens minted from public supply
+    uint16 public constant maxPetsSupply = 4444; // maxPetsSupply =  + reservePets + publicPetsSupply
+    uint16 private immutable _publicPetsSupply; // tokens avaiable for public
+    uint16 public reservePets = 150; // tokens reserve for the owner
+
     uint16 private _royalties = 700; // royalties in bps 1% = (1 *100) = 100 bps
 
-    uint256 public spawnPrice = 0.015 ether; // spawn price per token
-    bool public isSpawning;
+    uint256 public mintPrice = 0.099 ether; // mint price per token
+    bool public isMinting;
 
     address public royaltiesReciver; // EOA for as royalties receiver for collection
     string public baseURI; // token base uri
@@ -48,47 +48,44 @@ contract ERC721PetRobots is ERC721A, Ownable, IERC2981 {
     //                       MODIFIERS
     // =============================================================
 
-    modifier spawnRequirements(uint16 volume) {
-        if (!isSpawning) revert SpawningIsPaused();
-        if (volume == 0) revert ZeroTokensSpawn();
-
-        if (msg.value == (spawnPrice * volume)) {
-            _;
-        } else if (
-            DROE_ERC1155.balanceOf(_msgSender(), ERC1155_KEY_CARD_Id) >= volume
-        ) {
-            uint256[] memory tokenIds = new uint256[](1);
-            uint256[] memory amount = new uint256[](1);
-
-            tokenIds[0] = ERC1155_KEY_CARD_Id;
-            amount[0] = volume;
-
-            DROE_ERC1155.burn(_msgSender(), tokenIds, amount);
-            _;
-        } else {
-            revert LowPrice();
-        }
-    }
-
     // =============================================================
     //                       FUNCTIONS
     // =============================================================
 
     /**
-     * @dev  It will spawn from tokens allocated for public
-     * @param volume is the quantity of tokens to be spawn
+     * @dev  It will mint from tokens allocated for public
+     * @param volume is the quantity of tokens to be mint
      */
-    function spawn(uint16 volume) external payable spawnRequirements(volume) {
-        _maxSupplyCheck(volume);
-        _safeMint(_msgSender(), volume);
+    function mint(uint16 volume) external payable {
+        if (!isMinting) revert MintingIsPaused();
+        if (volume == 0) revert ZeroTokensMint();
+        if (msg.value < (mintPrice * volume)) revert LowPrice();
+
+        mintPets(volume);
+    }
+
+    function redeemKeyCards() external {
+        uint volume = DROE_ERC1155.balanceOf(_msgSender(), ERC1155_KEY_CARD_Id);
+
+        if (volume == 0) revert ZeroTokensMint();
+        uint256[] memory tokenIds = new uint256[](1);
+        uint256[] memory amount = new uint256[](1);
+
+        tokenIds[0] = ERC1155_KEY_CARD_Id;
+        amount[0] = volume;
+
+        // burn keycards
+        DROE_ERC1155.burn(_msgSender(), tokenIds, amount);
+
+        mintPets(volume);
     }
 
     /**
-     * @dev spawn function only callable by the Contract owner. It will spawn from reserve tokens for owner
-     * @param to is the address to which the tokens will be spawn
-     * @param volume is the quantity of tokens to be spawn
+     * @dev mint function only callable by the Contract owner. It will mint from reserve tokens for owner
+     * @param to is the address to which the tokens will be mint
+     * @param volume is the quantity of tokens to be mint
      */
-    function spawnFromReserve(address to, uint16 volume) external onlyOwner {
+    function mintFromReserve(address to, uint16 volume) external onlyOwner {
         if (volume > reservePets) revert PetsExceeded();
         reservePets -= volume;
         _safeMint(to, volume);
@@ -99,12 +96,16 @@ contract ERC721PetRobots is ERC721A, Ownable, IERC2981 {
     // =============================================================
 
     /**
-     * @dev private function to compute max supply limit
+     * @dev private function to compute max supply and mint NFTs
      */
-    function _maxSupplyCheck(uint16 volume) private {
-        uint16 totalPets = _totalPublicPets + volume;
+    function mintPets(uint volume) private {
+        // max supply check
+        uint totalPets = _totalPublicPets + volume;
         if (totalPets > _publicPetsSupply) revert PetsExceeded();
         _totalPublicPets = totalPets;
+
+        // mint NFTs
+        _safeMint(_msgSender(), volume);
     }
 
     // =============================================================
@@ -112,18 +113,18 @@ contract ERC721PetRobots is ERC721A, Ownable, IERC2981 {
     // =============================================================
 
     /**
-     * @dev it is only callable by Contract owner. it will toggle spawn status
+     * @dev it is only callable by Contract owner. it will toggle mint status
      */
-    function toggleSpawn() external onlyOwner {
-        isSpawning = !isSpawning;
+    function toggleMint() external onlyOwner {
+        isMinting = !isMinting;
     }
 
     /**
-     * @dev it will update spawn price
-     * @param _spawnPrice is new value for spawn
+     * @dev it will update mint price
+     * @param _mintPrice is new value for mint
      */
-    function setSpawnPrice(uint256 _spawnPrice) external onlyOwner {
-        spawnPrice = _spawnPrice;
+    function setMintPrice(uint256 _mintPrice) external onlyOwner {
+        mintPrice = _mintPrice;
     }
 
     /**
@@ -170,7 +171,7 @@ contract ERC721PetRobots is ERC721A, Ownable, IERC2981 {
      */
     function tokenURI(
         uint256 tokenId
-    ) public view override returns (string memory) {
+    ) public view override(ERC721A, IERC721A) returns (string memory) {
         require(
             _exists(tokenId),
             "ERC721Metadata: URI query for nonexistent token"
@@ -188,7 +189,7 @@ contract ERC721PetRobots is ERC721A, Ownable, IERC2981 {
      */
     function supportsInterface(
         bytes4 _interfaceId
-    ) public view virtual override(ERC721A, IERC165) returns (bool) {
+    ) public view virtual override(IERC721A, ERC721A, IERC165) returns (bool) {
         return
             _interfaceId == type(IERC2981).interfaceId ||
             super.supportsInterface(_interfaceId);
@@ -229,5 +230,7 @@ contract ERC721PetRobots is ERC721A, Ownable, IERC2981 {
         baseURI = _uri;
         DROE_ERC1155 = IERC1155(address_DROE_ERC1155);
         royaltiesReciver = msg.sender;
+
+        _publicPetsSupply = maxPetsSupply - reservePets;
     }
 }

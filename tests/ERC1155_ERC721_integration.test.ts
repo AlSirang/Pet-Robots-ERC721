@@ -26,6 +26,8 @@ describe("ERC1155_ERC721_integration.test", async function () {
   let deployer: SignerWithAddress; // owner of the Contract
   let account2: SignerWithAddress; // owner of the Contract
 
+  const KEY_CARDS = 12;
+
   beforeEach(async () => {
     // reset Block
     await reset(process.env.ETH_MAINNET_URL, BLOCK_NUMBER);
@@ -37,7 +39,7 @@ describe("ERC1155_ERC721_integration.test", async function () {
 
     const ERC721PetRobots = await ethers.getContractFactory("ERC721PetRobots");
     nft = await ERC721PetRobots.deploy(BASE_URI, ERC1155_DROE);
-    await nft.toggleSpawn();
+    await nft.toggleMint();
 
     // CONNECT DROE ERC1155 CONTRACT
     DROE_ERC1155 = await ethers.getContractAt("IERC1155", ERC1155_DROE);
@@ -51,7 +53,7 @@ describe("ERC1155_ERC721_integration.test", async function () {
     await MANI_FOLD.mintBatch(
       DROE_EXTENSION,
       CLAIM_INDEX,
-      12, // NFTs amount
+      KEY_CARDS, // NFTs amount
       [],
       [],
       deployer.address,
@@ -61,21 +63,21 @@ describe("ERC1155_ERC721_integration.test", async function () {
     );
   });
 
-  describe("deploy ERC721, test spawn ", () => {
-    let spawnPrice: BigNumberish;
+  describe("deploy ERC721, test mint ", () => {
+    let mintPrice: BigNumberish;
 
     beforeEach(async () => {
-      spawnPrice = await nft.spawnPrice();
+      mintPrice = await nft.mintPrice();
     });
 
-    describe("spawn for ETH", () => {
+    describe("mint for ETH", () => {
       let receipt: Transaction;
       beforeEach(async () => {
-        receipt = await nft.spawn(1, {
-          value: spawnPrice,
+        receipt = await nft.mint(1, {
+          value: mintPrice,
         });
       });
-      it("should allow to spawn for price", async () => {
+      it("should allow to mint for price", async () => {
         expect(receipt).to.emit(nft, "Transfer");
       });
       it("should update ERC721 balanceOf", async () => {
@@ -83,40 +85,56 @@ describe("ERC1155_ERC721_integration.test", async function () {
       });
     });
 
-    describe("spawn for KeyCards", () => {
+    describe("mint for KeyCards", () => {
       let receipt: Transaction;
 
       beforeEach(async () => {
         await DROE_ERC1155.setApprovalForAll(nft.address, true);
 
-        receipt = await nft.spawn(1);
+        receipt = await nft.redeemKeyCards();
       });
 
-      it("should return allow to spawn for price", async () => {
+      it("should return allow to mint for price", async () => {
         expect(receipt).to.emit(nft, "Transfer");
       });
       it("should update balanceOf", async () => {
-        expect(await nft.balanceOf(deployer.address)).to.eq(1);
+        expect(await nft.balanceOf(deployer.address)).to.eq(KEY_CARDS);
       });
 
-      it("should burn correct KeyCards", async () => {
-        expect(await DROE_ERC1155.balanceOf(deployer.address, 1)).to.eq(11);
-      });
       it("should burn all KeyCards", async () => {
-        await nft.spawn(11);
         expect(await DROE_ERC1155.balanceOf(deployer.address, 1)).to.eq(0);
       });
     });
 
-    describe("spawn for KeyCards Failure cases", () => {
+    describe("mint for KeyCards Failure cases", () => {
       it("should revert when ERC721 is not approved", async () => {
-        await expect(nft.spawn(1)).to.reverted;
+        await expect(nft.redeemKeyCards()).to.reverted;
       });
 
-      it("should revert when no KeyCards and ETH", async () => {
-        await expect(nft.connect(account2).spawn(1)).to.revertedWith(
-          "LowPrice"
+      it("should revert when no KeyCards", async () => {
+        await expect(nft.connect(account2).redeemKeyCards()).to.revertedWith(
+          "ZeroTokensMint"
         );
+      });
+
+      it("should revert when no ETH", async () => {
+        await expect(nft.connect(account2).mint(1)).to.revertedWith("LowPrice");
+      });
+    });
+
+    describe("Redeem KeyCards", () => {
+      beforeEach(async () => {
+        await DROE_ERC1155.setApprovalForAll(nft.address, true);
+
+        await nft.redeemKeyCards();
+      });
+
+      it("should brun all KeyCards and redeem ERC721 NFTs ", async () => {
+        expect(await nft.balanceOf(deployer.address)).to.eq(12);
+      });
+
+      it("should not allow to redeem more keycards for burn", async () => {
+        await expect(nft.redeemKeyCards()).to.reverted;
       });
     });
   });
