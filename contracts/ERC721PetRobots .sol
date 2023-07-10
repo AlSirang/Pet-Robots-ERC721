@@ -6,6 +6,7 @@ import "erc721a/contracts/extensions/ERC721AQueryable.sol";
 import "@openzeppelin/contracts/interfaces/IERC2981.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
+import "operator-filter-registry/src/DefaultOperatorFilterer.sol";
 import "./interfaces/IERC1155.sol";
 
 // =============================================================
@@ -27,7 +28,12 @@ error PetsExceeded();
 /// mint limit exceed error
 error WalletLimitExceeded();
 
-contract ERC721PetRobots is ERC721AQueryable, Ownable, IERC2981 {
+contract ERC721PetRobots is
+    DefaultOperatorFilterer,
+    ERC721AQueryable,
+    Ownable,
+    IERC2981
+{
     using Strings for uint256;
 
     IERC1155 DROE_ERC1155;
@@ -228,6 +234,74 @@ contract ERC721PetRobots is ERC721AQueryable, Ownable, IERC2981 {
      */
     function _startTokenId() internal pure override returns (uint256) {
         return 1;
+    }
+
+    // =============================================================
+    //                 ON-CHAIN ROYALTY ENFORCEMENT
+    // =============================================================
+
+    /**
+     * @dev override  {ERC721-setApprovalForAll} to enforce onchain royalty
+     * See {ERC721-setApprovalForAll}.
+     */
+    function setApprovalForAll(
+        address operator,
+        bool approved
+    ) public override(IERC721A, ERC721A) onlyAllowedOperatorApproval(operator) {
+        super.setApprovalForAll(operator, approved);
+    }
+
+    /**
+     * @dev override  {ERC721-approve} to enforce onchain royalty
+     * See {ERC721-approve}.
+     */
+    function approve(
+        address operator,
+        uint256 tokenId
+    )
+        public
+        payable
+        override(IERC721A, ERC721A)
+        onlyAllowedOperatorApproval(operator)
+    {
+        super.approve(operator, tokenId);
+    }
+
+    /**
+     * @dev override  {ERC721-transferFrom} to enforce onchain royalty
+     * See {ERC721-transferFrom}.
+     */
+    function transferFrom(
+        address from,
+        address to,
+        uint256 tokenId
+    ) public payable override(IERC721A, ERC721A) onlyAllowedOperator(from) {
+        super.transferFrom(from, to, tokenId);
+    }
+
+    /**
+     * @dev override  {ERC721-safeTransferFrom} to enforce onchain royalty
+     * See {ERC721-transferFrom}.
+     */
+    function safeTransferFrom(
+        address from,
+        address to,
+        uint256 tokenId
+    ) public payable override(IERC721A, ERC721A) onlyAllowedOperator(from) {
+        super.safeTransferFrom(from, to, tokenId);
+    }
+
+    /**
+     * @dev override  {ERC721-safeTransferFrom} to enforce onchain royalty
+     * See {ERC721-transferFrom}.
+     */
+    function safeTransferFrom(
+        address from,
+        address to,
+        uint256 tokenId,
+        bytes memory data
+    ) public payable override(IERC721A, ERC721A) onlyAllowedOperator(from) {
+        super.safeTransferFrom(from, to, tokenId, data);
     }
 
     // =============================================================
