@@ -43,7 +43,7 @@ describe("PetRobots", async function () {
     const ERC721PetRobots = await ethers.getContractFactory("ERC721PetRobots");
     nft = await ERC721PetRobots.deploy(BASE_URI, ERC1155_DROE);
 
-    await nft.toggleMint();
+    await Promise.all([nft.toggleMintStatus(), nft.toggleRedeemStatus()]);
   });
 
   /***** test case 1 ******/

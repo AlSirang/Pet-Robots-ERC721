@@ -13,8 +13,8 @@ import "./interfaces/IERC1155.sol";
 //                       ERRORS
 // =============================================================
 
-/// When public minting has not yet started
-error MintingIsPaused();
+/// When minting has not yet started
+error MintIsPaused();
 
 /// Zero NFTs mint. Wallet can mint at least one NFT.
 error ZeroTokensMint();
@@ -50,7 +50,8 @@ contract ERC721PetRobots is
 
     uint16 public walletLimit = 5; // max NFTs per wallet allowed to mint
 
-    bool public isMinting;
+    bool public isMintActive;
+    bool public isRedeemActive;
 
     address public royaltiesReciver; // EOA for as royalties receiver for collection
     string public baseURI; // token base uri
@@ -68,7 +69,7 @@ contract ERC721PetRobots is
      * @param volume is the quantity of tokens to be mint
      */
     function mint(uint16 volume) external payable {
-        if (!isMinting) revert MintingIsPaused();
+        if (!isMintActive) revert MintIsPaused();
         if (volume == 0) revert ZeroTokensMint();
         if (msg.value < (mintPrice * volume)) revert LowPrice();
 
@@ -79,6 +80,8 @@ contract ERC721PetRobots is
     }
 
     function redeemKeyCards() external {
+        if (!isRedeemActive) revert MintIsPaused();
+
         uint volume = DROE_ERC1155.balanceOf(_msgSender(), ERC1155_KEY_CARD_Id);
 
         if (volume == 0) revert ZeroTokensMint();
@@ -125,8 +128,15 @@ contract ERC721PetRobots is
     /**
      * @dev it is only callable by Contract owner. it will toggle mint status
      */
-    function toggleMint() external onlyOwner {
-        isMinting = !isMinting;
+    function toggleMintStatus() external onlyOwner {
+        isMintActive = !isMintActive;
+    }
+
+    /**
+     * @dev it is only callable by Contract owner. it will toggle redeem status
+     */
+    function toggleRedeemStatus() external onlyOwner {
+        isRedeemActive = !isRedeemActive;
     }
 
     /**

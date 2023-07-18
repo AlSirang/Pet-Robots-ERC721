@@ -39,7 +39,7 @@ describe("ERC1155 & ERC721 integration", async function () {
 
     const ERC721PetRobots = await ethers.getContractFactory("ERC721PetRobots");
     nft = await ERC721PetRobots.deploy(BASE_URI, ERC1155_DROE);
-    await nft.toggleMint();
+    await Promise.all([nft.toggleMintStatus(), nft.toggleRedeemStatus()]);
 
     // CONNECT DROE ERC1155 CONTRACT
     DROE_ERC1155 = await ethers.getContractAt("IERC1155", ERC1155_DROE);
