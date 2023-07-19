@@ -46,7 +46,7 @@ contract ERC721PetRobots is
     uint16 public constant maxPetsSupply = 4444; // maxPetsSupply =  + reservePets + publicPetsSupply
     uint16 private immutable _publicPetsSupply; // tokens avaiable for public
     uint16 public reservePets = 150; // tokens reserve for the owner
-    uint16 private _royalties = 700; // royalties in bps 1% = (1 *100) = 100 bps
+    uint16 private _royalties = 750; // royalties in bps 1% = (1 *100) = 100 bps
 
     uint16 public walletLimit = 5; // max NFTs per wallet allowed to mint
 
