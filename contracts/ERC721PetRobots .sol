@@ -40,12 +40,12 @@ contract ERC721PetRobots is
     uint8 public constant ERC1155_KEY_CARD_Id = 1; // ERC1155's Token Id 1 is only accepted to be burn and mint new NFTs
 
     uint256 private _totalPublicPets; // number of tokens minted from public supply
+    uint256 public totalPetsRedeem; // amount of NFTs redeem through ERC1155 burn
     uint256 public mintPrice = 0.099 ether; // mint price per token
 
     uint16 public constant maxPetsSupply = 4444; // maxPetsSupply =  + reservePets + publicPetsSupply
     uint16 private immutable _publicPetsSupply; // tokens avaiable for public
     uint16 public reservePets = 150; // tokens reserve for the owner
-
     uint16 private _royalties = 700; // royalties in bps 1% = (1 *100) = 100 bps
 
     uint16 public walletLimit = 5; // max NFTs per wallet allowed to mint
@@ -82,7 +82,10 @@ contract ERC721PetRobots is
     function redeemKeyCards() external {
         if (!isRedeemActive) revert MintIsPaused();
 
-        uint volume = DROE_ERC1155.balanceOf(_msgSender(), ERC1155_KEY_CARD_Id);
+        uint256 volume = DROE_ERC1155.balanceOf(
+            _msgSender(),
+            ERC1155_KEY_CARD_Id
+        );
 
         if (volume == 0) revert ZeroTokensMint();
         uint256[] memory tokenIds = new uint256[](1);
@@ -91,6 +94,7 @@ contract ERC721PetRobots is
         tokenIds[0] = ERC1155_KEY_CARD_Id;
         amount[0] = volume;
 
+        totalPetsRedeem += volume; // update redeem counter
         // burn keycards
         DROE_ERC1155.burn(_msgSender(), tokenIds, amount);
 

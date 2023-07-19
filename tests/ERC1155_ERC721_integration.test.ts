@@ -136,6 +136,10 @@ describe("ERC1155 & ERC721 integration", async function () {
       it("should not allow to redeem more keycards for burn", async () => {
         await expect(nft.redeemKeyCards()).to.reverted;
       });
+
+      it("should update redeem counter", async () => {
+        expect(await nft.totalPetsRedeem()).to.eq(KEY_CARDS);
+      });
     });
   });
 });
